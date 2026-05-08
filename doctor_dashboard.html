@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Doctor Dashboard</title>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <!-- Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: Arial;
+            background: #1e1e2f;
+            color: white;
+            display: flex;
+            margin: 0;
+        }
+
+        #sidebar {
+            width: 250px;
+            background: #2c2c3e;
+            padding: 10px;
+        }
+
+        #sidebar div {
+            padding: 10px;
+            margin: 5px;
+            background: #3a3a5a;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        #sidebar div:hover {
+            background: #505080;
+        }
+
+        #content {
+            flex: 1;
+            padding: 20px;
+        }
+
+        .high { color: red; font-weight: bold; }
+        .moderate { color: yellow; font-weight: bold; }
+        .low { color: lightgreen; font-weight: bold; }
+
+        /* 🔥 ALERT BOX */
+        #alerts {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+
+        .alert {
+            background: red;
+            color: white;
+            padding: 10px;
+            margin: 2px;
+            text-align: center;
+            font-weight: bold;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- 🔥 ALERT AREA -->
+<div id="alerts"></div>
+
+<!-- 🔥 SIDEBAR -->
+<div id="sidebar">
+    <h3>Patients</h3>
+</div>
+
+<!-- 🔥 CONTENT -->
+<div id="content">
+    <h2 id="patientName">Select a Patient</h2>
+    <p id="score"></p>
+    <canvas id="chart"></canvas>
+</div>
+
+<script>
+    // 🔥 FIREBASE CONFIG
+    var firebaseConfig = {
+        databaseURL: "https://parkinsonproject-6eed0-default-rtdb.asia-southeast1.firebasedatabase.app/"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+
+    var db = firebase.database().ref("patients");
+    var alertRef = firebase.database().ref("alerts");
+
+    let patientData = {};
+
+    // 🔥 LOAD PATIENT DATA
+    db.on("child_added", function(snapshot) {
+        var data = snapshot.val();
+        var name = data.name;
+        var score = data.score;
+
+        if (!patientData[name]) {
+            patientData[name] = [];
+        }
+
+        patientData[name].push(score);
+
+        updateSidebar();
+    });
+
+    // 🔥 UPDATE SIDEBAR
+    function updateSidebar() {
+        var sidebar = document.getElementById("sidebar");
+        sidebar.innerHTML = "<h3>Patients</h3>";
+
+        Object.keys(patientData).forEach(name => {
+            var div = document.createElement("div");
+            div.innerText = name;
+
+            div.onclick = function() {
+                showPatient(name);
+            };
+
+            sidebar.appendChild(div);
+        });
+    }
+
+    // 🔥 CHART
+    var ctx = document.getElementById('chart').getContext('2d');
+
+    var chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Risk Score',
+                data: [],
+                borderWidth: 2
+            }]
+        }
+    });
+
+    // 🔥 SHOW PATIENT
+    function showPatient(name) {
+        var scores = patientData[name];
+
+        document.getElementById("patientName").innerText = name;
+
+        var latest = scores[scores.length - 1];
+
+        var riskClass = "low";
+        if (latest > 0.75) riskClass = "high";
+        else if (latest > 0.4) riskClass = "moderate";
+
+        document.getElementById("score").innerHTML =
+            `<span class="${riskClass}">Latest Score: ${latest.toFixed(3)}</span>`;
+
+        chart.data.labels = scores.map((_, i) => "Test " + (i + 1));
+        chart.data.datasets[0].data = scores;
+
+        chart.update();
+    }
+
+    // 🔥 ALERT SYSTEM (REAL-TIME)
+    alertRef.on("child_added", function(snapshot) {
+        var data = snapshot.val();
+
+        var alertBox = document.getElementById("alerts");
+
+        var div = document.createElement("div");
+        div.className = "alert";
+
+        div.innerText = `🚨 CRITICAL: ${data.name} → Score ${data.score.toFixed(3)}`;
+
+        alertBox.appendChild(div);
+
+        // 🔥 AUTO REMOVE AFTER 5 SEC
+        setTimeout(() => {
+            div.remove();
+        }, 5000);
+    });
+</script>
+
+</body>
+</html>

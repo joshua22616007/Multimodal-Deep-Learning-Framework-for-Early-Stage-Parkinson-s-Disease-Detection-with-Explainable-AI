@@ -1,0 +1,20 @@
+parkinson_project/
+│
+├── app.py
+│
+├── models/
+│   ├── audio_model.py
+│   ├── handwriting_model.py
+│   ├── tremor_model.py
+│   ├── face_model.py
+│   ├── gait_model.py
+│
+├── utils/
+│   ├── fusion.py
+│   ├── database.py
+│
+├── models/   (same folder will store .h5 files)
+│
+├── data/
+│
+├── requirements.txt
